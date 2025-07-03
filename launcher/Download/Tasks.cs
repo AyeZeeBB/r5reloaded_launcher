@@ -44,7 +44,7 @@ namespace launcher.Download
         public static DownloadSpeedMonitor _speedMonitor;
         public static double currentDownloadSpeed = 0;
 
-        private const long MultiPartThreshold = 1L * 1024 * 1024 * 1024; // 1 GiB
+        private const long MultiPartThreshold = long.MaxValue; // 1 GiB
         private const long PartSize = 1L * 1024 * 1024 * 1024; // 1 GiB
 
         public static int UpdateType = 0; // 0 = install, 1 = repair, 2 = uninstall
