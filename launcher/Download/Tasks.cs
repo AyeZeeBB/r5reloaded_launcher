@@ -92,7 +92,7 @@ namespace launcher.Download
 
         public static void ConfigureConcurrency()
         {
-            int maxConcurrentDownloads = (int)Ini.Get(Ini.Vars.Concurrent_Downloads);
+            int maxConcurrentDownloads = 1;
             _downloadSemaphore?.Dispose();
             _downloadSemaphore = new SemaphoreSlim(maxConcurrentDownloads);
         }
