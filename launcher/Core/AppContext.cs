@@ -97,7 +97,7 @@ namespace launcher.Core
         public static Rectangle DragBarDropShadow = new();
         public static ThemeEditor themeEditor = null;
 
-        public static PlaylistRoot playlistRoot = new();
+        public static PlaylistFile playlistRoot = new();
         public static List<string> gamemodes = [];
         public static List<string> maps = [];
 

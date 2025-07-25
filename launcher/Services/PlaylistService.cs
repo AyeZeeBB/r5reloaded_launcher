@@ -14,21 +14,21 @@ namespace launcher.Services
         /// Parses a playlist file from the specified path.
         /// </summary>
         /// <param name="filePath">The path to the playlist file.</param>
-        /// <returns>A <see cref="PlaylistRoot"/> object representing the parsed playlist data.</returns>
-        public static PlaylistRoot Parse(string filePath)
+        /// <returns>A <see cref="PlaylistFile"/> object representing the parsed playlist data.</returns>
+        public static PlaylistFile Parse(string filePath)
         {
             try
             {
                 using (var stream = File.OpenRead(filePath))
                 {
                     var kv = KVSerializer.Create(KVSerializationFormat.KeyValues1Text);
-                    return kv.Deserialize<PlaylistRoot>(stream, new KVSerializerOptions { HasEscapeSequences = false, EnableValveNullByteBugBehavior = true });
+                    return kv.Deserialize<PlaylistFile>(stream, new KVSerializerOptions { HasEscapeSequences = false, EnableValveNullByteBugBehavior = true });
                 }
             }
             catch (Exception ex)
             {
                 LogException("Playlist Parsing Failed", LogSource.VDF, ex);
-                return new PlaylistRoot();
+                return new PlaylistFile();
             }
         }
 
@@ -37,7 +37,7 @@ namespace launcher.Services
         /// </summary>
         /// <param name="data">The playlist data.</param>
         /// <returns>A list of map names.</returns>
-        public static List<string> GetMaps(PlaylistRoot data)
+        public static List<string> GetMaps(PlaylistFile data)
         {
             var maps = new List<string> { "No Selection" };
             if (data?.Playlists == null)
@@ -64,7 +64,7 @@ namespace launcher.Services
         /// </summary>
         /// <param name="data">The playlist data.</param>
         /// <returns>A list of playlist names.</returns>
-        public static List<string> GetPlaylists(PlaylistRoot data)
+        public static List<string> GetPlaylists(PlaylistFile data)
         {
             var playlistNames = new List<string> { "No Selection" };
             if (data?.Playlists == null)
