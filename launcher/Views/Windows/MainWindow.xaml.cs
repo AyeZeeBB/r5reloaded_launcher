@@ -132,30 +132,26 @@ namespace launcher
             PreLoad_Window.Show();
 
             // Setup global exception handlers
-            PreLoad_Window.SetLoadingText("Creating exception handlers");
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
             // Create the configuration file if it doesn't exist
-            PreLoad_Window.SetLoadingText("Creating configuration file");
             SettingsService.CreateDefaultConfig();
 
             // Setup the system tray
-            PreLoad_Window.SetLoadingText("Setting up system tray");
             SetupSystemTray();
 
             // Setup the application
             await SetupApp(this);
 
             // Setup the news buttons
-            PreLoad_Window.SetLoadingText("Setting up news items");
             NewsButtons.Add(Community_Button);
             NewsButtons.Add(NewLegends_Button);
             NewsButtons.Add(Comms_Button);
             NewsButtons.Add(PatchNotes_Button);
 
             // Setup Background
-            PreLoad_Window.SetLoadingText("Finishing up");
+            PreLoad_Window.SetLoadingText("Finalizing...");
 
             bool useStaticImage = (bool)SettingsService.Get(SettingsService.Vars.Disable_Background_Video);
 
@@ -192,9 +188,6 @@ namespace launcher
             }
 
             PreLoad_Window.Close();
-
-            //TextOptions.SetTextFormattingMode(Main_Window, TextFormattingMode.Display);
-            //TextOptions.SetTextRenderingMode(Main_Window, TextRenderingMode.ClearType);
 
             // Show window open animation
             await OnOpen();

@@ -24,46 +24,37 @@ namespace launcher.Core
             if (appState.DebugArg)
                 EnableDebugConsole();
 
-            PreLoad_Window.SetLoadingText("Checking for EA Desktop App");
+            PreLoad_Window.SetLoadingText("Locating EA Desktop...");
             await Task.Run(() => _processService.FindAndStartEAApp());
 
-            PreLoad_Window.SetLoadingText("Checking for internet connection");
+            PreLoad_Window.SetLoadingText("Verifying internet connection...");
             await Task.Run(() => CheckInternetConnection());
 
-            PreLoad_Window.SetLoadingText("Setting up controls references");
+            // Consolidated message for multiple rapid UI setup tasks
+            PreLoad_Window.SetLoadingText("Initializing interface...");
             await Task.Run(() => SetupControlReferences(mainWindow));
-
-            PreLoad_Window.SetLoadingText("Setting up app");
             await Task.Run(() => Launcher.Init());
+            await Task.Run(() => SetupMenus());
 
             if ((bool)SettingsService.Get(SettingsService.Vars.Enable_Discord_Rich_Presence))
             {
-                PreLoad_Window.SetLoadingText("Setting up Discord RPC");
+                PreLoad_Window.SetLoadingText("Connecting to Discord...");
                 await Task.Run(() => DiscordService.InitDiscordRPC());
             }
 
-            PreLoad_Window.SetLoadingText("Setting up menus");
-            await Task.Run(() => SetupMenus());
-
-            PreLoad_Window.SetLoadingText("Getting game channels");
+            PreLoad_Window.SetLoadingText("Fetching release channels...");
             await Task.Run(() => SetupReleaseChannelComboBox());
 
-            PreLoad_Window.SetLoadingText("Checking game installs");
+            PreLoad_Window.SetLoadingText("Locating game installations...");
             await Task.Run(() => CheckGameInstalls());
 
-            PreLoad_Window.SetLoadingText("Starting update checker");
+            PreLoad_Window.SetLoadingText("Checking for application updates...");
             await Task.Run(() => GetSelfUpdater());
 
-            PreLoad_Window.SetLoadingText("Getting EULA contents");
+            PreLoad_Window.SetLoadingText("Loading user agreement...");
             await Task.Run(() => EULA_Control.SetupEULA());
 
-            PreLoad_Window.SetLoadingText("Starting service status");
-            Task.Run(() => Status_Control.StartStatusTimer());
-
-            GameFileManager.ShowSpeedLabels(false, false);
-
-            PreLoad_Window.SetLoadingText("Checking for news");
-
+            PreLoad_Window.SetLoadingText("Fetching latest news...");
             appState.newsOnline = await NetworkHealthService.IsNewsApiAvailableAsync();
 
             if (appState.IsOnline && appState.newsOnline)
@@ -78,6 +69,9 @@ namespace launcher.Core
                 foreach (var button in Main_Window.NewsButtons)
                     button.IsEnabled = false;
             }
+
+            Task.Run(() => Status_Control.StartStatusTimer());
+            GameFileManager.ShowSpeedLabels(false, false);
         }
 
         public static bool IsR5ApexOpen() => _processService.IsR5ApexOpen();
