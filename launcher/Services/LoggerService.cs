@@ -87,7 +87,7 @@ namespace launcher.Services
 
             string jsonLogMessage = JsonSerializer.Serialize(logEntry);
 
-            //if (appState.DebugArg)
+            if (appState.DebugArg)
                 Console.WriteLine(jsonLogMessage);
 
             await WriteTextToFileAsync(LogFilePath, jsonLogMessage + Environment.NewLine);
