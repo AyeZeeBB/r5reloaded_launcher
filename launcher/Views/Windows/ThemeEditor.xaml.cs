@@ -22,56 +22,49 @@ namespace launcher
         public ThemeEditor()
         {
             InitializeComponent();
+            SetupThemeEditor();
         }
 
-        public void SetupThemeEditor()
+        private void SetupThemeEditor()
         {
             var app = (App)Application.Current;
-
-            colorsControls.Add(ThemePrimary);
-            colorsControls.Add(ThemeSecondary);
-            colorsControls.Add(ThemeSecondaryAlt);
-            colorsControls.Add(ThemePrimaryText);
-            colorsControls.Add(ThemePrimaryAltText);
-            colorsControls.Add(ThemeSecondaryText);
-            colorsControls.Add(ThemeSecondaryAltText);
-            colorsControls.Add(ThemeDisabledText);
-            colorsControls.Add(ThemeSeperator);
-            colorsControls.Add(ThemeOtherButtonText);
-            colorsControls.Add(ThemeOtherButtonHover);
-            colorsControls.Add(ThemeOtherButtonAltText);
-            colorsControls.Add(ThemeMainButtonsBackground);
-            colorsControls.Add(ThemeMainButtonsBorder);
-            colorsControls.Add(ThemeMainButtonsBorderHover);
-            colorsControls.Add(ThemeUpdateButtonBackground);
-            colorsControls.Add(ThemeUpdateButtonBackgroundHover);
-            colorsControls.Add(ThemeMenuButtonColorHover);
-            colorsControls.Add(ThemeMenuButtonColorDisabled);
-            colorsControls.Add(ThemeComboBoxBorder);
-            colorsControls.Add(ThemeComboBoxMouseOver);
-            colorsControls.Add(ThemeComboBoxSelected);
-            colorsControls.Add(ThemeComboBoxSelectedMouseOver);
-            colorsControls.Add(ThemeUninstallButtonText);
-            colorsControls.Add(ThemeUninstallButtonHover);
-            colorsControls.Add(ThemeStatusPlayerServerCount);
-            colorsControls.Add(ThemeStatusOperational);
-            colorsControls.Add(ThemeStatusNonOperational);
-
-            foreach (ColorPicker.PortableColorPicker color in colorsControls)
+            colorsControls.AddRange(new[]
             {
-                SolidColorBrush brush = app.ThemeDictionary[GetName(color)] as SolidColorBrush;
-                color.SelectedColor = brush.Color;
-                color.SecondaryColor = brush.Color;
-                color.HintColor = brush.Color;
-                color.ColorChanged += ColorChanged;
+                ThemePrimary, ThemeSecondary, ThemeSecondaryAlt,
+                ThemePrimaryText, ThemePrimaryAltText, ThemeSecondaryText,
+                ThemeSecondaryAltText, ThemeDisabledText, ThemeSeperator,
+                ThemeOtherButtonText, ThemeOtherButtonHover, ThemeOtherButtonAltText,
+                ThemeMainButtonsBackground, ThemeMainButtonsBorder, ThemeMainButtonsBorderHover,
+                ThemeUpdateButtonBackground, ThemeUpdateButtonBackgroundHover,
+                ThemeMenuButtonColorHover, ThemeMenuButtonColorDisabled,
+                ThemeComboBoxBorder, ThemeComboBoxMouseOver, ThemeComboBoxSelected,
+                ThemeComboBoxSelectedMouseOver, ThemeUninstallButtonText,
+                ThemeUninstallButtonHover, ThemeStatusPlayerServerCount,
+                ThemeStatusOperational, ThemeStatusNonOperational
+            });
 
-                app.ThemeDictionary[GetName(color)] = new SolidColorBrush(color.SelectedColor);
+            foreach (var colorPicker in colorsControls)
+            {
+                SetupColorPicker(colorPicker, app.ThemeDictionary);
             }
 
-            if(appState.wineEnv)
+            if (appState.wineEnv)
             {
                 ChangeVideo.IsEnabled = false;
                 ChangeVideo.Content = "Video Disabled Under Wine";
+            }
+        }
+
+        private void SetupColorPicker(ColorPicker.PortableColorPicker colorPicker, ResourceDictionary themeDictionary)
+        {
+            string colorName = GetName(colorPicker);
+            if (themeDictionary[colorName] is SolidColorBrush brush)
+            {
+                colorPicker.SelectedColor = brush.Color;
+                colorPicker.SecondaryColor = brush.Color;
+                colorPicker.HintColor = brush.Color;
+                colorPicker.ColorChanged += ColorChanged;
+                themeDictionary[colorName] = new SolidColorBrush(colorPicker.SelectedColor);
             }
         }
 
@@ -89,50 +82,23 @@ namespace launcher
 
         private void ExportFullTheme(string filePath)
         {
-            // Get the theme dictionary (assumed to be the first merged dictionary)
             var app = (App)Application.Current;
-            ResourceDictionary themeDictionary = app.ThemeDictionary;
+            var themeDictionary = app.ThemeDictionary;
 
-            // Use a StringBuilder to construct the XAML
             var sb = new StringBuilder();
-
-            // Write the header for the ResourceDictionary
             sb.AppendLine(@"<ResourceDictionary xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""");
             sb.AppendLine(@"                    xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">");
 
-            // Iterate through each key/value pair in the dictionary
             foreach (DictionaryEntry entry in themeDictionary)
             {
-                string key = entry.Key.ToString();
-
-                // Handle SolidColorBrush specially
                 if (entry.Value is SolidColorBrush brush)
                 {
-                    // Convert the Color to a hex string (ARGB)
                     string hex = $"#{brush.Color.A:X2}{brush.Color.R:X2}{brush.Color.G:X2}{brush.Color.B:X2}";
-                    sb.AppendLine($"    <SolidColorBrush x:Key=\"{key}\" Color=\"{hex}\" />");
-                }
-                else
-                {
-                    // For other types, fall back to XamlWriter (or handle them manually as needed)
-                    try
-                    {
-                        string serialized = System.Windows.Markup.XamlWriter.Save(entry.Value);
-                        // Indent the serialized XAML properly (optional)
-                        sb.AppendLine("    " + serialized.Replace(Environment.NewLine, Environment.NewLine + "    "));
-                    }
-                    catch (Exception ex)
-                    {
-                        // If serialization fails, you might log or handle the error
-                        sb.AppendLine($"    <!-- Unable to serialize resource with key '{key}': {ex.Message} -->");
-                    }
+                    sb.AppendLine($"    <SolidColorBrush x:Key=\"{entry.Key}\" Color=\"{hex}\" />");
                 }
             }
 
-            // Close the ResourceDictionary tag
             sb.AppendLine("</ResourceDictionary>");
-
-            // Write the constructed XAML to file
             File.WriteAllText(filePath, sb.ToString());
         }
 
@@ -154,28 +120,14 @@ namespace launcher
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            string exportPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]), "launcher_data\\cfg\\theme.xaml");
+            string exportPath = Path.Combine(Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]), "launcher_data\\cfg\\theme.xaml");
             ExportFullTheme(exportPath);
             LogInfo(LogSource.Launcher, $"Theme changes exported to {exportPath}");
         }
 
         private void StartupImage_Click(object sender, RoutedEventArgs e)
         {
-            var directoryDialog = new CommonOpenFileDialog
-            {
-                IsFolderPicker = false,
-                Title = "Select PNG File",
-                Filters = { new CommonFileDialogFilter("PNG Files", "*.png") }
-            };
-
-            if (directoryDialog.ShowDialog() == CommonFileDialogResult.Ok)
-            {
-                Directory.CreateDirectory(System.IO.Path.Combine(Launcher.PATH, "launcher_data\\assets"));
-
-                File.Copy(directoryDialog.FileName, System.IO.Path.Combine(Launcher.PATH, "launcher_data\\assets", "startup.png"), true);
-
-                LogInfo(LogSource.Launcher, "Loading local startup image");
-            }
+            SelectFile("Select PNG File", "*.png", "startup.png", "local startup image");
         }
 
         private async void BackgroundVideo_Click(object sender, RoutedEventArgs e)
@@ -183,61 +135,77 @@ namespace launcher
             if (appState.wineEnv)
                 return;
 
-            var directoryDialog = new CommonOpenFileDialog
+            string selectedFile = SelectFile("Select Mp4 File", "*.mp4");
+            if (string.IsNullOrEmpty(selectedFile)) return;
+
+            Background_Video.Stop();
+            Background_Video.Close();
+            Background_Video.ClearValue(MediaElement.SourceProperty);
+
+            await Task.Delay(500);
+
+            string destinationFile = CopyFile(selectedFile, "background.mp4", "local video background");
+            if (destinationFile != null)
             {
-                IsFolderPicker = false,
-                Title = "Select Mp4 File",
-                Filters = { new CommonFileDialogFilter("Mp4 Files", "*.mp4") }
-            };
-
-            if (directoryDialog.ShowDialog() == CommonFileDialogResult.Ok)
-            {
-                Background_Video.Stop();
-                Background_Video.Close();
-                Background_Video.ClearValue(MediaElement.SourceProperty);
-
-                Directory.CreateDirectory(System.IO.Path.Combine(Launcher.PATH, "launcher_data\\assets"));
-
-                await Task.Delay(500);
-
-                File.Copy(directoryDialog.FileName, System.IO.Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.mp4"), true);
-
-                Background_Video.Source = new Uri(System.IO.Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.mp4"), UriKind.Absolute);
-                LogInfo(LogSource.Launcher, "Loading local video background");
+                Background_Video.Source = new Uri(destinationFile, UriKind.Absolute);
             }
         }
 
         private void BackgroundImageClick(object sender, RoutedEventArgs e)
         {
-            var directoryDialog = new CommonOpenFileDialog
+            string selectedFile = SelectFile("Select PNG File", "*.png");
+            if (string.IsNullOrEmpty(selectedFile)) return;
+
+            string destinationFile = CopyFile(selectedFile, "background.png", "local image background");
+            if (destinationFile != null)
+            {
+                var bitmap = new BitmapImage();
+                using (var stream = new FileStream(destinationFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.StreamSource = stream;
+                    bitmap.EndInit();
+                }
+                bitmap.Freeze();
+                Background_Image.Source = bitmap;
+            }
+        }
+
+        private string SelectFile(string title, string filter, string destinationFileName = null, string logMessage = null)
+        {
+            var dialog = new CommonOpenFileDialog
             {
                 IsFolderPicker = false,
-                Title = "Select PNG File",
-                Filters = { new CommonFileDialogFilter("PNG Files", "*.png") }
+                Title = title,
+                Filters = { new CommonFileDialogFilter(filter, filter) }
             };
 
-            if (directoryDialog.ShowDialog() == CommonFileDialogResult.Ok)
+            if (dialog.ShowDialog() != CommonFileDialogResult.Ok) return null;
+
+            if (destinationFileName != null && logMessage != null)
             {
-                Directory.CreateDirectory(System.IO.Path.Combine(Launcher.PATH, "launcher_data\\assets"));
+                CopyFile(dialog.FileName, destinationFileName, logMessage);
+            }
 
-                File.Copy(directoryDialog.FileName, System.IO.Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.png"), true);
+            return dialog.FileName;
+        }
 
-                string imagePath = System.IO.Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.png");
-                if (File.Exists(imagePath))
-                {
-                    var bitmap = new BitmapImage();
-                    using (var stream = new FileStream(imagePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    {
-                        bitmap.BeginInit();
-                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                        bitmap.StreamSource = stream;
-                        bitmap.EndInit();
-                    }
-                    bitmap.Freeze();
-                    Background_Image.Source = bitmap;
-                }
-
-                LogInfo(LogSource.Launcher, "Loading local image background");
+        private string CopyFile(string source, string destinationFileName, string logMessage)
+        {
+            try
+            {
+                string destinationPath = Path.Combine(Launcher.PATH, "launcher_data\\assets");
+                Directory.CreateDirectory(destinationPath);
+                string destinationFile = Path.Combine(destinationPath, destinationFileName);
+                File.Copy(source, destinationFile, true);
+                LogInfo(LogSource.Launcher, $"Loading {logMessage}");
+                return destinationFile;
+            }
+            catch (Exception ex)
+            {
+                LogError(LogSource.Launcher, $"Error copying file: {ex.Message}");
+                return null;
             }
         }
 

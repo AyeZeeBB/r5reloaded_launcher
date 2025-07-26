@@ -12,17 +12,17 @@ namespace launcher
 {
     public partial class Popup_Tour : UserControl
     {
-        public static List<TourStep> OnBoardingItems { get; } = [
+        private static List<TourStep> TourSteps { get; } = [
             new TourStep("Launcher Menu", "Quick access to settings and useful resources can be found in this menu.", new Rect(1,1,24,14), new Vector2(6,64)),
-            new TourStep("Service Status", "Monitor the status of R5R services here. If there are any performance or service interruptions, you will see it here.", new Rect(210,1,31,14), new Vector2(600,64)),
-            new TourStep("Downloads And Tasks", "Follow the progress of your game downloads / updates.", new Rect(246,1,31,14), new Vector2(760,64)),
+            new TourStep("Service Status", "Monitor the status of R5R services here. If there are any performance or service interruptions, you will see it here.", new Rect(200,1,33,14), new Vector2(562,64)),
+            new TourStep("Downloads And Tasks", "Follow the progress of your game downloads / updates.", new Rect(236,1,38,14), new Vector2(745,64)),
             new TourStep("channels And Installing", "Here you can select the release channel you want to install, update, or play", new Rect(20,75,71,63), new Vector2(86,538)),
             new TourStep("Game Settings", "Clicking this allows you to access advanced settings for the selected release channel, as well as verify game files or uninstall.", new Rect(75,101,16,16), new Vector2(334,455)),
             new TourStep("News And Updates", "View latest updates, patch notes, guides, and anything else related to R5Reloaded straight from the R5R Team.", new Rect(102,77,190,116), new Vector2(455,128)),
             new TourStep("You're All Set", "You've successfully completed the Launcher Tour. If you have any questions or need further assistance, feel free to join our discord!", new Rect(135,95,0,0), new Vector2(430,305)),
             ];
 
-        private int currentIndex = 0;
+        private int _tourStep = 0;
 
         public Popup_Tour()
         {
@@ -31,103 +31,61 @@ namespace launcher
 
         private void Next_Click(object sender, RoutedEventArgs e)
         {
-            if (currentIndex + 1 >= OnBoardingItems.Count)
+            if (_tourStep + 1 >= TourSteps.Count)
             {
                 EndTour();
                 return;
             }
 
-            SetItem(currentIndex + 1);
+            SetItem(_tourStep + 1);
         }
 
         public void SetItem(int index)
         {
-            currentIndex = index;
+            _tourStep = index;
 
-            Next.Content = "Next";
-            Skip.Visibility = Visibility.Visible;
+            Next.Content = _tourStep == TourSteps.Count - 1 ? "Finish" : "Next";
+            Skip.Visibility = _tourStep == TourSteps.Count - 1 ? Visibility.Hidden : Visibility.Visible;
 
-            if (currentIndex == OnBoardingItems.Count - 1)
-            {
-                Next.Content = "Finish";
-                Skip.Visibility = Visibility.Hidden;
-            }
-
-            TourStep item = OnBoardingItems[index];
+            TourStep item = TourSteps[index];
 
             Title.Text = item.Title;
             Desc.Text = item.Description;
-            Page.Text = $"{index + 1} of {OnBoardingItems.Count}";
+            Page.Text = $"{index + 1} of {TourSteps.Count}";
 
-            if (OnBoard_Control.RenderTransform is TransformGroup transformGroup)
+            if (OnBoard_Control.RenderTransform is not TransformGroup transformGroup) return;
+
+            var translateTransform = transformGroup.Children.OfType<TranslateTransform>().FirstOrDefault();
+            if (translateTransform != null)
             {
-                var translateTransform = transformGroup.Children.OfType<TranslateTransform>().FirstOrDefault();
-                AnimateTranslate(translateTransform, item.translatePos);
-                AnimateGeoRect(OnBoardingClip, item.geoRect);
+                Animate(translateTransform, TranslateTransform.XProperty, item.translatePos.X);
+                Animate(translateTransform, TranslateTransform.YProperty, item.translatePos.Y);
             }
+            Animate(OnBoardingClip, RectangleGeometry.RectProperty, item.geoRect);
         }
 
-        private static void AnimateTranslate(TranslateTransform translateTransform, Vector2 xy)
+        private static void Animate(TranslateTransform target, DependencyProperty property, double to)
         {
-            if (translateTransform == null)
-            {
-                System.Diagnostics.Debug.WriteLine("TranslateTransform is null. Cannot animate.");
-                return;
-            }
-
-            // Determine animation speed
             double speed = (bool)SettingsService.Get(SettingsService.Vars.Disable_Transitions) ? 1 : 400;
-
-            // Animate X property
-            var moveXAnimation = new DoubleAnimation
+            var animation = new DoubleAnimation
             {
-                From = translateTransform.X,
-                To = xy.X,
+                To = to,
                 Duration = new Duration(TimeSpan.FromMilliseconds(speed)),
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
             };
-
-            // Animate Y property
-            var moveYAnimation = new DoubleAnimation
-            {
-                From = translateTransform.Y,
-                To = xy.Y,
-                Duration = new Duration(TimeSpan.FromMilliseconds(speed)),
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-            };
-
-            // Apply animations directly
-            translateTransform.BeginAnimation(TranslateTransform.XProperty, moveXAnimation);
-            translateTransform.BeginAnimation(TranslateTransform.YProperty, moveYAnimation);
+            target.BeginAnimation(property, animation);
         }
 
-        private static void AnimateGeoRect(RectangleGeometry geo, Rect newRect)
+        private static void Animate(RectangleGeometry target, DependencyProperty property, Rect to)
         {
-            if (geo == null)
-            {
-                System.Diagnostics.Debug.WriteLine("RectangleGeometry is null. Cannot animate.");
-                return;
-            }
-
-            // Ensure the geometry is not frozen
-            if (geo.IsFrozen)
-            {
-                // Clone the geometry to make it unfrozen
-                geo = geo.Clone();
-            }
-
             double speed = (bool)SettingsService.Get(SettingsService.Vars.Disable_Transitions) ? 1 : 400;
-
-            var rectAnimation = new RectAnimation
+            var animation = new RectAnimation
             {
-                From = geo.Rect,
-                To = newRect,
+                To = to,
                 Duration = new Duration(TimeSpan.FromMilliseconds(speed)),
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
             };
-
-            // Apply the animation directly
-            geo.BeginAnimation(RectangleGeometry.RectProperty, rectAnimation);
+            target.BeginAnimation(property, animation);
         }
 
         private void Skip_Click(object sender, RoutedEventArgs e)

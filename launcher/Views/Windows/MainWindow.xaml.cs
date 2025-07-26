@@ -75,44 +75,81 @@ namespace launcher
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            InitializeApplicationState();
+            await InitializeThemeAsync();
+            ShowPreloadWindow();
+            SetupExceptionHandling();
+            await InitializeCoreApp();
+            SetupUIComponents();
+            await LoadBackgroundAsync();
+            
+            PreLoad_Window.Close();
+
+            await AnimateWindow(isOpening: true);
+
+            if (appState.IsOnline)
+            {
+                _ = UpdateService.Start();
+                SetButtonState();
+            }
+            else
+                Play_Button.Content = "PLAY";
+
+            if ((bool)SettingsService.Get(SettingsService.Vars.Ask_For_Tour))
+            {
+                ShowOnBoardAskPopup();
+            }
+
+            this.Activate();
+        }
+
+        private void InitializeApplicationState()
+        {
             appState.DebugArg = Environment.GetCommandLineArgs().Any(arg => arg.Equals("-debug", StringComparison.OrdinalIgnoreCase));
             RenderOptions.ProcessRenderMode = RenderMode.Default;
-
-            // Hide the window on startup
             this.Opacity = 0;
 
             appState.wineEnv = IsWineEnvironment();
             if (appState.wineEnv)
             {
                 LogInfo(LogSource.Launcher, "Wine environment detected, disabling background video");
+                DisableVideoBackground();
+            }
+        }
 
-                // Hide the video element
-                Background_Video.Source = null;
-                Background_Video.Close();
-                Background_Video.Visibility = Visibility.Collapsed;
-                Background_Video.MediaEnded -= mediaElement_MediaEnded;
+        private void DisableVideoBackground()
+        {
+            Background_Video.Source = null;
+            Background_Video.Close();
+            Background_Video.Visibility = Visibility.Collapsed;
+            Background_Video.MediaEnded -= mediaElement_MediaEnded;
 
-                // Remove the video element from the parent grid
-                Grid parent = Background_Video.Parent as Grid;
-                parent?.Children.Remove(Background_Video);
-
-                Background_Video = null;
+            if (Background_Video.Parent is Grid parent)
+            {
+                parent.Children.Remove(Background_Video);
             }
 
+            Background_Video = null;
+        }
+
+        private async Task InitializeThemeAsync()
+        {
             var app = (App)System.Windows.Application.Current;
-            if (File.Exists(Path.Combine(Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]), "launcher_data\\cfg\\theme.xaml")))
-            {
-                app.ChangeTheme(new Uri(Path.Combine(Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]), "launcher_data\\cfg\\theme.xaml")));
-            }
-            else
-            {
-                if (await NetworkHealthService.IsCdnAvailableAsync())
-                {
-                    app.ChangeTheme(new Uri("https://cdn.r5r.org/launcher/theme.xaml"));
-                }
-            }
+            string localThemePath = Path.Combine(Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]), "launcher_data\\cfg\\theme.xaml");
 
-            PreLoad_Window = new();
+            if (File.Exists(localThemePath))
+            {
+                app.ChangeTheme(new Uri(localThemePath));
+            }
+            else if (await NetworkHealthService.IsCdnAvailableAsync())
+            {
+                app.ChangeTheme(new Uri("https://cdn.r5r.org/launcher/theme.xaml"));
+            }
+        }
+
+        private void ShowPreloadWindow()
+        {
+            PreLoad_Window = new PreLoad();
 
             string imagePath = Path.Combine(Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]), "launcher_data\\assets", "startup.png");
             if (File.Exists(imagePath))
@@ -130,34 +167,33 @@ namespace launcher
             }
 
             PreLoad_Window.Show();
+        }
 
-            // Setup global exception handlers
+        private void SetupExceptionHandling()
+        {
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+        }
 
-            // Create the configuration file if it doesn't exist
+        private async Task InitializeCoreApp()
+        {
             SettingsService.CreateDefaultConfig();
-
-            // Setup the system tray
             SetupSystemTray();
-
-            // Setup the application
             await SetupApp(this);
+        }
 
-            // Setup the news buttons
-            NewsButtons.Add(Community_Button);
-            NewsButtons.Add(NewLegends_Button);
-            NewsButtons.Add(Comms_Button);
-            NewsButtons.Add(PatchNotes_Button);
-
-            // Setup Background
+        private void SetupUIComponents()
+        {
+            NewsButtons.AddRange(new[] { Community_Button, NewLegends_Button, Comms_Button, PatchNotes_Button });
             PreLoad_Window.SetLoadingText("Finalizing...");
+        }
 
+        private async Task LoadBackgroundAsync()
+        {
             bool useStaticImage = (bool)SettingsService.Get(SettingsService.Vars.Disable_Background_Video);
 
             if (appState.wineEnv)
             {
-                // Force disable background video
                 SettingsService.Set(SettingsService.Vars.Disable_Background_Video, true);
                 useStaticImage = true;
             }
@@ -172,45 +208,31 @@ namespace launcher
             }
             else
             {
-                if (File.Exists(Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.png")))
+                LoadStaticImageBackground();
+            }
+        }
+
+        private void LoadStaticImageBackground()
+        {
+            string backgroundPath = Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.png");
+            if (File.Exists(backgroundPath))
+            {
+                var bitmap = new BitmapImage();
+                using (var stream = new FileStream(backgroundPath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    var bitmap = new BitmapImage();
-                    using (var stream = new FileStream(Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.png"), FileMode.Open, FileAccess.Read, FileShare.Read))
-                    {
-                        bitmap.BeginInit();
-                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                        bitmap.StreamSource = stream;
-                        bitmap.EndInit();
-                    }
-                    bitmap.Freeze();
-                    Background_Image.Source = bitmap;
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.StreamSource = stream;
+                    bitmap.EndInit();
                 }
+                bitmap.Freeze();
+                Background_Image.Source = bitmap;
             }
-
-            PreLoad_Window.Close();
-
-            // Show window open animation
-            await OnOpen();
-
-            if (appState.IsOnline)
-            {
-                Task.Run(() => UpdateService.Start());
-                SetButtonState();
-            }
-            else
-                Play_Button.Content = "PLAY";
-
-            if ((bool)SettingsService.Get(SettingsService.Vars.Ask_For_Tour))
-            {
-                ShowOnBoardAskPopup();
-            }
-
-            this.Activate();
         }
 
         private void Current_Exit(object sender, ExitEventArgs e)
         {
-            System_Tray.Dispose();
+            System_Tray?.Dispose();
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -249,21 +271,25 @@ namespace launcher
 
         private void btnClose_Click(object sender, RoutedEventArgs e)
         {
-            if ((string)SettingsService.Get(SettingsService.Vars.Enable_Quit_On_Close) != "quit" && (string)SettingsService.Get(SettingsService.Vars.Enable_Quit_On_Close) != "tray")
-                SettingsService.Set(SettingsService.Vars.Enable_Quit_On_Close, "");
+            string closeAction = (string)SettingsService.Get(SettingsService.Vars.Enable_Quit_On_Close);
+            if (closeAction != "quit" && closeAction != "tray")
+            {
+                closeAction = "";
+                SettingsService.Set(SettingsService.Vars.Enable_Quit_On_Close, closeAction);
+            }
 
-            if (string.IsNullOrEmpty((string)SettingsService.Get(SettingsService.Vars.Enable_Quit_On_Close)))
+            if (string.IsNullOrEmpty(closeAction))
             {
                 ShowAskToQuit();
                 return;
             }
 
-            if ((string)SettingsService.Get(SettingsService.Vars.Enable_Quit_On_Close) == "quit")
+            if (closeAction == "quit")
                 System.Windows.Application.Current.Shutdown();
-            else if ((string)SettingsService.Get(SettingsService.Vars.Enable_Quit_On_Close) == "tray")
+            else if (closeAction == "tray")
             {
                 SendNotification("Launcher minimized to tray.", BalloonIcon.Info);
-                OnClose();
+                _ = OnClose();
             }
         }
 
@@ -343,10 +369,11 @@ namespace launcher
 
         private void ReleaseChannel_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (sender is not ComboBox comboBox) return;
-
-            var SelectedReleaseChannel = comboBox.SelectedIndex;
-            if (ReleaseChannel_Combobox.Items[SelectedReleaseChannel] is not ReleaseChannelViewModel comboChannel) return;
+            if (sender is not ComboBox { SelectedIndex: var selectedIndex } ||
+                ReleaseChannel_Combobox.Items[selectedIndex] is not ReleaseChannelViewModel comboChannel)
+            {
+                return;
+            }
 
             SetupAdvancedMenu();
             GameSettings_Control.OpenDir_Button.IsEnabled = ReleaseChannelService.IsInstalled() || comboChannel.isLocal;
@@ -354,7 +381,7 @@ namespace launcher
 
             if (appState.IsOnline && appState.newsOnline)
             {
-                Task.Run(() => NewsService.Populate());
+                Task.Run(() =>NewsService.Populate());
             }
 
             if (comboChannel.isLocal || !appState.IsOnline)
@@ -367,38 +394,45 @@ namespace launcher
             appState.isLocal = false;
             SettingsService.Set(SettingsService.Vars.SelectedReleaseChannel, ReleaseChannelService.GetName(false));
 
-            Task.Run(() => SetTextBlockContent(ReleaseChannelService.GetServerComboVersion(ReleaseChannelService.GetCurrentReleaseChannel())));
+            _ = SetTextBlockContent(ReleaseChannelService.GetServerComboVersion(ReleaseChannelService.GetCurrentReleaseChannel()));
 
             if (ReleaseChannelService.IsInstalled())
             {
-                HandleInstalledReleaseChannel(SelectedReleaseChannel);
+                HandleInstalledReleaseChannel(selectedIndex);
             }
             else
             {
-                HandleUninstalledReleaseChannel(SelectedReleaseChannel);
+                HandleUninstalledReleaseChannel(selectedIndex);
             }
         }
 
-        private async void SetTextBlockContent(string version)
+        private async Task SetTextBlockContent(string version)
         {
-            string slug = await ReleaseChannelService.GetBlogSlug();
-            string filter = string.IsNullOrEmpty(slug) ? "" : $"&filter=tag:{slug}";
-            News root = await NetworkHealthService.HttpClient.GetFromJsonAsync<News>($"{Launcher.NEWSURL}/posts/?key={Launcher.NEWSKEY}&include=tags,authors{filter}&limit=1&fields=url");
-            string url = root.posts.Count == 0 ? "https://blog.r5reloaded.com" : root.posts[0].url;
-
-            appDispatcher.BeginInvoke(() =>
+            try
             {
-                ReadMore_Label.Inlines.Clear();
-                ReadMore_Label.Inlines.Add(new Run($"Read about {version} features, "));
+                string slug = await ReleaseChannelService.GetBlogSlug();
+                string filter = string.IsNullOrEmpty(slug) ? "" : $"&filter=tag:{slug}";
+                News root = await NetworkHealthService.HttpClient.GetFromJsonAsync<News>($"{Launcher.NEWSURL}/posts/?key={Launcher.NEWSKEY}&include=tags,authors{filter}&limit=1&fields=url");
+                string url = root.posts.Count == 0 ? "https://blog.r5reloaded.com" : root.posts[0].url;
 
-                Hyperlink link = new(new Run("see patch notes"))
+                appDispatcher.BeginInvoke(() =>
                 {
-                    NavigateUri = new Uri(url)
-                };
-                link.RequestNavigate += Hyperlink_RequestNavigate;
+                    ReadMore_Label.Inlines.Clear();
+                    ReadMore_Label.Inlines.Add(new Run($"Read about {version} features, "));
 
-                ReadMore_Label.Inlines.Add(link);
-            });
+                    Hyperlink link = new(new Run("see patch notes"))
+                    {
+                        NavigateUri = new Uri(url)
+                    };
+                    link.RequestNavigate += Hyperlink_RequestNavigate;
+
+                    ReadMore_Label.Inlines.Add(link);
+                });
+            }
+            catch (Exception ex)
+            {
+                LogError(LogSource.Launcher, $"Failed to set text block content: {ex.Message}");
+            }
         }
 
         private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
@@ -418,7 +452,7 @@ namespace launcher
         {
             if (ReleaseChannelService.IsUpdateAvailable() && ReleaseChannelService.IsInstalled())
             {
-                Task.Run(() => GameUpdater.Start());
+                _ = GameUpdater.Start();
                 Update_Button.Visibility = Visibility.Hidden;
             }
         }
@@ -510,27 +544,24 @@ namespace launcher
 
         private void Window_StateChanged(object sender, EventArgs e)
         {
-            if (WindowState == WindowState.Maximized)
-            {
-                // Store current size and position before maximizing
-                _previousWidth = Width;
-                _previousHeight = Height;
-                _previousTop = Top;
-                _previousLeft = Left;
+            if (WindowState != WindowState.Maximized) return;
 
-                // Get the current monitor's working area
-                var helper = new WindowInteropHelper(this);
-                System.Windows.Forms.Screen currentScreen = System.Windows.Forms.Screen.FromHandle(helper.Handle);
-                var screen = currentScreen.WorkingArea;
+            _previousWidth = Width;
+            _previousHeight = Height;
+            _previousTop = Top;
+            _previousLeft = Left;
 
-                WindowState = WindowState.Normal;
-                Top = screen.Top;
-                Left = screen.Left;
-                Width = screen.Width;
-                Height = screen.Height;
+            var helper = new WindowInteropHelper(this);
+            var currentScreen = System.Windows.Forms.Screen.FromHandle(helper.Handle);
+            var screen = currentScreen.WorkingArea;
 
-                _isMaximized = true;
-            }
+            WindowState = WindowState.Normal;
+            Top = screen.Top;
+            Left = screen.Left;
+            Width = screen.Width;
+            Height = screen.Height;
+
+            _isMaximized = true;
         }
 
         private void Window_LocationChanged(object sender, EventArgs e)
@@ -623,58 +654,62 @@ namespace launcher
             if (appState.wineEnv)
                 return;
 
-            if ((bool)SettingsService.Get(SettingsService.Vars.Stream_Video) && !File.Exists(Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.mp4")) && appState.IsOnline)
+            string backgroundVideoPath = Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.mp4");
+            bool streamVideo = (bool)SettingsService.Get(SettingsService.Vars.Stream_Video);
+            string serverVideoName = (string)SettingsService.Get(SettingsService.Vars.Server_Video_Name);
+
+            if (streamVideo && !File.Exists(backgroundVideoPath) && appState.IsOnline)
             {
-                Directory.CreateDirectory(Path.Combine(Launcher.PATH, "launcher_data\\cache"));
-
-                if (File.Exists(Path.Combine(Launcher.PATH, "launcher_data\\cache", appState.RemoteConfig.backgroundVideo)))
-                {
-                    Background_Video.Source = new Uri(Path.Combine(Launcher.PATH, "launcher_data\\cache", appState.RemoteConfig.backgroundVideo), UriKind.Absolute);
-                    LogInfo(LogSource.Launcher, "Loading local video background");
-                }
-                else
-                {
-                    using (var client = new HttpClient())
-                    {
-                        using (var s = client.GetStreamAsync(Launcher.BACKGROUND_VIDEO_URL + appState.RemoteConfig.backgroundVideo))
-                        {
-                            using (var fs = new FileStream(Path.Combine(Launcher.PATH, "launcher_data\\cache", appState.RemoteConfig.backgroundVideo), FileMode.OpenOrCreate))
-                            {
-                                s.Result.CopyTo(fs);
-                            }
-                        }
-                    }
-
-                    SettingsService.Set(SettingsService.Vars.Server_Video_Name, appState.RemoteConfig.backgroundVideo);
-
-                    Background_Video.Source = new Uri(Path.Combine(Launcher.PATH, "launcher_data\\cache", appState.RemoteConfig.backgroundVideo), UriKind.Absolute);
-
-                    LogInfo(LogSource.Launcher, $"Loaded video background from server");
-                }
+                await StreamVideoFromServer();
             }
-            else if ((bool)SettingsService.Get(SettingsService.Vars.Stream_Video) && string.IsNullOrEmpty((string)SettingsService.Get(SettingsService.Vars.Server_Video_Name)) && File.Exists(Path.Combine(Launcher.PATH, "launcher_data\\cache", (string)SettingsService.Get(SettingsService.Vars.Server_Video_Name))))
+            else if (streamVideo && !string.IsNullOrEmpty(serverVideoName) && File.Exists(Path.Combine(Launcher.PATH, "launcher_data\\cache", serverVideoName)))
             {
-                Background_Video.Source = new Uri(Path.Combine(Launcher.PATH, "launcher_data\\cache", (string)SettingsService.Get(SettingsService.Vars.Server_Video_Name)), UriKind.Absolute);
-                LogInfo(LogSource.Launcher, "Loading local video background");
+                Background_Video.Source = new Uri(Path.Combine(Launcher.PATH, "launcher_data\\cache", serverVideoName), UriKind.Absolute);
+                LogInfo(LogSource.Launcher, "Loading cached video background");
             }
-            else if (File.Exists(Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.mp4")))
+            else if (File.Exists(backgroundVideoPath))
             {
-                Background_Video.Source = new Uri(Path.Combine(Launcher.PATH, "launcher_data\\assets", "background.mp4"), UriKind.Absolute);
+                Background_Video.Source = new Uri(backgroundVideoPath, UriKind.Absolute);
                 LogInfo(LogSource.Launcher, "Loading local video background");
             }
 
-            Background_Video.MediaOpened += (sender, e) =>
-            {
-                Background_Video.Play();
-            };
-
-            await Task.Delay(1000);
-
+            Background_Video.MediaOpened += (sender, e) => Background_Video.Play();
             Background_Video.MediaFailed += (sender, e) =>
             {
-                LogInfo(LogSource.Launcher, $"Failed to load video: {e.ErrorException?.Message}");
+                LogError(LogSource.Launcher, $"Failed to load video: {e.ErrorException?.Message}");
                 Background_Video.Visibility = Visibility.Hidden;
             };
+        }
+
+        private async Task StreamVideoFromServer()
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(Launcher.PATH, "launcher_data\\cache"));
+                string cachedVideoPath = Path.Combine(Launcher.PATH, "launcher_data\\cache", appState.RemoteConfig.backgroundVideo);
+
+                if (File.Exists(cachedVideoPath))
+                {
+                    Background_Video.Source = new Uri(cachedVideoPath, UriKind.Absolute);
+                    LogInfo(LogSource.Launcher, "Loading cached video background from server");
+                    return;
+                }
+
+                using (var client = new HttpClient())
+                using (var s = await client.GetStreamAsync(Launcher.BACKGROUND_VIDEO_URL + appState.RemoteConfig.backgroundVideo))
+                using (var fs = new FileStream(cachedVideoPath, FileMode.CreateNew))
+                {
+                    await s.CopyToAsync(fs);
+                }
+
+                SettingsService.Set(SettingsService.Vars.Server_Video_Name, appState.RemoteConfig.backgroundVideo);
+                Background_Video.Source = new Uri(cachedVideoPath, UriKind.Absolute);
+                LogInfo(LogSource.Launcher, "Loaded video background from server");
+            }
+            catch (Exception ex)
+            {
+                LogError(LogSource.Launcher, $"Failed to stream video from server: {ex.Message}");
+            }
         }
 
         private void HandleLocalFolder(string name)
@@ -782,88 +817,63 @@ namespace launcher
 
             if ((bool)SettingsService.Get(SettingsService.Vars.Disable_Animations))
             {
-                if (isOpening)
-                {
-                    this.Opacity = 1;
-                }
-                else
+                this.Opacity = isOpening ? 1 : 0;
+                if (!isOpening)
                 {
                     this.Hide();
-                    this.Opacity = 1;
                     WindowScale.ScaleX = 1;
                     WindowScale.ScaleY = 1;
                 }
                 return;
             }
 
-            // Delay before opening animation
-            if (isOpening)
-                await Task.Delay(100);
+            if (isOpening) await Task.Delay(100);
 
-            // Create a storyboard for simultaneous animations
-            Storyboard storyboard = new();
+            var storyboard = new Storyboard();
+            var duration = new Duration(TimeSpan.FromSeconds(0.5));
+            var easing = new CubicEase { EasingMode = EasingMode.EaseInOut };
 
-            // Duration for the animations
-            Duration animationDuration = new(TimeSpan.FromSeconds(0.5));
-
-            // Easing function for smoothness
-            CubicEase easing = new() { EasingMode = EasingMode.EaseInOut };
-
-            // Define animation values based on opening or closing
-            double scaleStart = isOpening ? 0.75 : 1.0;
-            double scaleEnd = isOpening ? 1.0 : 0.75;
-            double opacityStart = isOpening ? 0.0 : 1.0;
-            double opacityEnd = isOpening ? 1.0 : 0.0;
-
-            // Animate ScaleX
-            DoubleAnimation scaleXAnimation = new()
+            var scaleXAnimation = new DoubleAnimation
             {
-                From = scaleStart,
-                To = scaleEnd,
-                Duration = animationDuration,
+                From = isOpening ? 0.75 : 1.0,
+                To = isOpening ? 1.0 : 0.75,
+                Duration = duration,
                 EasingFunction = easing
             };
             Storyboard.SetTarget(scaleXAnimation, this);
             Storyboard.SetTargetProperty(scaleXAnimation, new PropertyPath("RenderTransform.ScaleX"));
 
-            // Animate ScaleY
-            DoubleAnimation scaleYAnimation = new()
+            var scaleYAnimation = new DoubleAnimation
             {
-                From = scaleStart,
-                To = scaleEnd,
-                Duration = animationDuration,
+                From = isOpening ? 0.75 : 1.0,
+                To = isOpening ? 1.0 : 0.75,
+                Duration = duration,
                 EasingFunction = easing
             };
             Storyboard.SetTarget(scaleYAnimation, this);
             Storyboard.SetTargetProperty(scaleYAnimation, new PropertyPath("RenderTransform.ScaleY"));
 
-            // Animate Opacity
-            DoubleAnimation opacityAnimation = new()
+            var opacityAnimation = new DoubleAnimation
             {
-                From = opacityStart,
-                To = opacityEnd,
-                Duration = animationDuration,
+                From = isOpening ? 0.0 : 1.0,
+                To = isOpening ? 1.0 : 0.0,
+                Duration = duration,
                 EasingFunction = easing
             };
             Storyboard.SetTarget(opacityAnimation, this);
-            Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath("Opacity"));
+            Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(nameof(Opacity)));
 
-            // Add animations to the storyboard
             storyboard.Children.Add(scaleXAnimation);
             storyboard.Children.Add(scaleYAnimation);
             storyboard.Children.Add(opacityAnimation);
 
-            // Create a TaskCompletionSource to await the animation
-            TaskCompletionSource<bool> tcs = new();
+            var tcs = new TaskCompletionSource<bool>();
             storyboard.Completed += (s, e) => tcs.SetResult(true);
 
-            // Begin the storyboard
             storyboard.Begin();
 
-            // Await the completion of the animation
             await tcs.Task;
 
-            // Finalize actions after animation
             if (!isOpening)
             {
                 this.Hide();
@@ -879,18 +889,11 @@ namespace launcher
 
         private void ExecuteShowWindow()
         {
-            // Show the main window
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
-                var mainWindow = System.Windows.Application.Current.MainWindow;
-                if (mainWindow != null)
-                {
-                    mainWindow.Show();
-                    mainWindow.WindowState = WindowState.Normal;
-                    mainWindow.Activate();
-                    OnOpen();
-                }
-            });
+            if (System.Windows.Application.Current.MainWindow is not { } mainWindow) return;
+            mainWindow.Show();
+            mainWindow.WindowState = WindowState.Normal;
+            mainWindow.Activate();
+            _ = OnOpen();
         }
 
         private bool CanExecuteShowWindow()

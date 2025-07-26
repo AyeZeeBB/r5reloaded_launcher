@@ -101,7 +101,6 @@ namespace launcher
             }
 
             themeEditor = new();
-            themeEditor.SetupThemeEditor();
             themeEditor.Show();
         }
 

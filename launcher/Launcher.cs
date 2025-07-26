@@ -36,24 +36,49 @@ namespace launcher
 
         public static void Init()
         {
-            string version = (bool)SettingsService.Get(SettingsService.Vars.Nightly_Builds) ? (string)SettingsService.Get(SettingsService.Vars.Launcher_Version) : VERSION;
-            appDispatcher.Invoke(() => Version_Label.Text = version);
+            SetupPath();
+            SetupVersion();
+            LoadConfiguration();
+            SetupLocalization();
+            ConfigureNetworkProtocols();
+        }
 
-            LogInfo(LogSource.Launcher, $"Launcher Version: {version}");
-
+        private static void SetupPath()
+        {
             PATH = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]);
             LogInfo(LogSource.Launcher, $"Launcher path: {PATH}");
+        }
 
+        private static string GetLauncherVersion()
+        {
+            var useNightly = (bool)SettingsService.Get(SettingsService.Vars.Nightly_Builds);
+            return useNightly ? (string)SettingsService.Get(SettingsService.Vars.Launcher_Version) : VERSION;
+        }
+
+        private static void SetupVersion()
+        {
+            string version = GetLauncherVersion();
+            appDispatcher.Invoke(() => Version_Label.Text = version);
+            LogInfo(LogSource.Launcher, $"Launcher Version: {version}");
+        }
+
+        private static void LoadConfiguration()
+        {
             appState.RemoteConfig = appState.IsOnline ? ApiService.GetRemoteConfig() : null;
 
             SettingsService.Load();
-
             appState.LauncherConfig = SettingsService.IniFile;
-            LogInfo(LogSource.Launcher, $"Launcher config found");
+            LogInfo(LogSource.Launcher, "Launcher config loaded.");
+        }
 
+        private static void SetupLocalization()
+        {
             appState.cultureInfo = CultureInfo.CurrentCulture;
             appState.language_name = appState.cultureInfo.Parent.EnglishName.ToLower(new CultureInfo("en-US"));
+        }
 
+        private static void ConfigureNetworkProtocols()
+        {
             AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
         }
