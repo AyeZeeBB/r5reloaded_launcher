@@ -1,5 +1,6 @@
 using launcher.Core.Models;
 using launcher.GameLifecycle.Models;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using static launcher.Services.LoggerService;
@@ -14,15 +15,31 @@ namespace launcher.Services
             return NetworkHealthService.HttpClient.GetFromJsonAsync<RemoteConfig>("https://cdn.r5r.org/launcher/config.json").Result;
         }
 
-        public static string GetGameVersion(string channel_url)
+        public static string GetGameVersion(ReleaseChannel channel)
         {
-            var response = NetworkHealthService.HttpClient.GetAsync($"{channel_url}\\version.txt").Result;
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{channel.game_url}\\version.txt");
+
+            if(channel.key.Length > 0)
+                request.Headers.Add("channel-key", channel.key);
+
+            var response = NetworkHealthService.HttpClient.SendAsync(request).Result;
+
             return response.Content.ReadAsStringAsync().Result;
         }
 
         public static async Task<GameManifest> GetGameManifestAsync(bool optional)
         {
-            GameManifest gameManifest = await NetworkHealthService.HttpClient.GetFromJsonAsync<GameManifest>($"{ReleaseChannelService.GetGameURL()}\\checksums.json", new JsonSerializerOptions() { AllowTrailingCommas = true });
+            ReleaseChannel channel = ReleaseChannelService.GetCurrentReleaseChannel();
+
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{channel.game_url}\\checksums.json");
+
+            if (channel.key.Length > 0)
+                request.Headers.Add("channel-key", channel.key);
+
+            var response = await NetworkHealthService.HttpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            GameManifest gameManifest = await response.Content.ReadFromJsonAsync<GameManifest>(new JsonSerializerOptions() { AllowTrailingCommas = true });
 
             gameManifest.files = gameManifest.files.Where(file => file.optional == optional && string.IsNullOrEmpty(file.language)).ToList();
 
@@ -33,14 +50,31 @@ namespace launcher.Services
         {
             if (channel != null)
             {
-                GameManifest gameManifest = await NetworkHealthService.HttpClient.GetFromJsonAsync<GameManifest>($"{channel.game_url}\\checksums.json", new JsonSerializerOptions() { AllowTrailingCommas = true });
+                var request1 = new HttpRequestMessage(HttpMethod.Get, $"{channel.game_url}\\checksums.json");
+
+                if (channel.key.Length > 0)
+                    request1.Headers.Add("channel-key", channel.key);
+
+                var response1 = await NetworkHealthService.HttpClient.SendAsync(request1);
+                response1.EnsureSuccessStatusCode();
+
+                GameManifest gameManifest = await response1.Content.ReadFromJsonAsync<GameManifest>(new JsonSerializerOptions() { AllowTrailingCommas = true });
 
                 gameManifest.files = gameManifest.files.Where(file => !string.IsNullOrEmpty(file.language)).ToList();
 
                 return gameManifest;
             }
 
-            GameManifest GameManifest = await NetworkHealthService.HttpClient.GetFromJsonAsync<GameManifest>($"{ReleaseChannelService.GetGameURL()}\\checksums.json", new JsonSerializerOptions() { AllowTrailingCommas = true });
+            var request2 = new HttpRequestMessage(HttpMethod.Get, $"{ReleaseChannelService.GetGameURL()}\\checksums.json");
+
+            string key = ReleaseChannelService.GetKey();
+            if (key.Length > 0)
+                request2.Headers.Add("channel-key", key);
+
+            var response2 = await NetworkHealthService.HttpClient.SendAsync(request2);
+            response2.EnsureSuccessStatusCode();
+
+            GameManifest GameManifest = await response2.Content.ReadFromJsonAsync<GameManifest>(new JsonSerializerOptions() { AllowTrailingCommas = true });
 
             GameManifest.files = GameManifest.files.Where(file => !string.IsNullOrEmpty(file.language)).ToList();
 

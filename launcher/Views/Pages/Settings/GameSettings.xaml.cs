@@ -27,9 +27,7 @@ namespace launcher
 
             LibraryPath.Text = (string)SettingsService.Get(SettingsService.Vars.Library_Location);
 
-            var releaseChannelsToShow = appState.RemoteConfig.channels
-                .Where(b => !b.is_local && b.enabled)
-                .ToList();
+            var releaseChannelsToShow = appState.RemoteConfig.channels.ToList();
 
             for (int i = 0; i < releaseChannelsToShow.Count; i++)
             {

@@ -5,6 +5,7 @@ using launcher.Game;
 using launcher.Services;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Windows;
 using static launcher.Core.AppContext;
 using static launcher.Services.LoggerService;
@@ -21,7 +22,7 @@ namespace launcher.Core
         #region Setup Functions
         public static async Task SetupApp(MainWindow mainWindow)
         {
-            if (appState.DebugArg)
+            //if (appState.DebugArg)
                 EnableDebugConsole();
 
             PreLoad_Window.SetLoadingText("Locating EA Desktop...");
@@ -180,13 +181,36 @@ namespace launcher.Core
 
             RemoveDisabledChannels();
 
+            foreach(var channel in appState.RemoteConfig.channels)
+            {
+                if(channel.requires_key)
+                {
+                    string channelKey = (string)SettingsService.Get(channel.name, "key", "");
+                    if(channelKey.Length > 0)
+                    {
+                        var request = new HttpRequestMessage(HttpMethod.Get, $"{channel.game_url}\\checksums.json");
+                        request.Headers.Add("channel-key", channelKey);
+
+                        var response = NetworkHealthService.HttpClient.SendAsync(request).Result;
+                        if (response.IsSuccessStatusCode)
+                        {
+                            channel.key = channelKey;
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            RemoveKeyedChannels();
+
             return appState.RemoteConfig.channels
-                .Where(channel => channel.enabled || !appState.IsOnline)
+                .Where(channel => channel.enabled || (channel.enabled && channel.requires_key && channel.key.Length > 0) || !appState.IsOnline)
                 .Select(channel => new ReleaseChannelViewModel
                 {
                     title = channel.name.ToUpper(new CultureInfo("en-US")),
                     subtext = ReleaseChannelService.GetServerComboVersion(channel),
-                    isLocal = channel.is_local
+                    isLocal = channel.is_local,
+                    key = channel.key
                 })
                 .ToList();
         }
@@ -212,12 +236,18 @@ namespace launcher.Core
                         name = folderName.ToUpper(new CultureInfo("en-US")),
                         game_url = "",
                         enabled = true,
+                        requires_key = false,
                         is_local = true,
                     });
                     LogInfo(LogSource.Launcher, $"Local folder found: {folderName}");
                 }
             }
             return localChannels;
+        }
+
+        private static void RemoveKeyedChannels()
+        {
+            appState.RemoteConfig.channels.RemoveAll(channel => channel.requires_key && channel.key.Length == 0);
         }
 
         private static void RemoveDisabledChannels()

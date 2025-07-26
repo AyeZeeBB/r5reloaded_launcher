@@ -23,9 +23,10 @@ namespace launcher.Services
         public static bool IsInstalled(ReleaseChannel channel = null) { return channel != null ? (bool)SettingsService.Get(channel.name, "Is_Installed", false) : (bool)SettingsService.Get(GetCurrentReleaseChannel().name, "Is_Installed", false); }
         public static bool DoesExeExist(ReleaseChannel channel = null) { return channel != null ? System.IO.Directory.Exists(GetDirectory(channel)) && File.Exists(Path.Combine(GetDirectory(channel), "r5apex.exe")) : System.IO.Directory.Exists(GetDirectory()) && File.Exists(Path.Combine(GetDirectory(), "r5apex.exe")); }
 
+        public static string GetKey(ReleaseChannel channel = null) { return channel != null ? (string)SettingsService.Get(channel.name, "key", "") : (string)SettingsService.Get(GetCurrentReleaseChannel().name, "key", ""); }
         public static string GetLocalVersion(ReleaseChannel channel = null) { return channel != null ? (string)SettingsService.Get(channel.name, "Version", "") : (string)SettingsService.Get(GetCurrentReleaseChannel().name, "Version", ""); }
-        public static string GetServerComboVersion(ReleaseChannel channel) { return channel.is_local ? "Local Install" : ApiService.GetGameVersion(channel.game_url); }
-        public static string GetServerVersion() { return ApiService.GetGameVersion(GetCurrentReleaseChannel().game_url); }
+        public static string GetServerComboVersion(ReleaseChannel channel) { return channel.is_local ? "Local Install" : ApiService.GetGameVersion(channel); }
+        public static string GetServerVersion() { return ApiService.GetGameVersion(GetCurrentReleaseChannel()); }
         public static string GetDirectory(ReleaseChannel channel = null) { return channel != null ? Path.Combine((string)SettingsService.Get(SettingsService.Vars.Library_Location), "R5R Library", GetName(true, channel)) : Path.Combine((string)SettingsService.Get(SettingsService.Vars.Library_Location), "R5R Library", GetName()); }
         public static string GetDediURL(ReleaseChannel channel = null) { return channel != null ? channel.dedi_url : GetCurrentReleaseChannel().dedi_url; }
         public static string GetName(bool uppercase = true, ReleaseChannel channel = null) { return channel != null ? (uppercase ? channel.name.ToUpper(new CultureInfo("en-US")) : channel.name) : (uppercase ? GetCurrentReleaseChannel().name.ToUpper(new CultureInfo("en-US")) : GetCurrentReleaseChannel().name); }
