@@ -9,7 +9,7 @@ namespace launcher
 {
     public static class Launcher
     {
-        public const string VERSION = "1.2.3";
+        public const string VERSION = "1.2.5";
 
         #region Settings
 
@@ -36,49 +36,24 @@ namespace launcher
 
         public static void Init()
         {
-            SetupPath();
-            SetupVersion();
-            LoadConfiguration();
-            SetupLocalization();
-            ConfigureNetworkProtocols();
-        }
+            string version = (bool)SettingsService.Get(SettingsService.Vars.Nightly_Builds) ? (string)SettingsService.Get(SettingsService.Vars.Launcher_Version) : VERSION;
+            appDispatcher.Invoke(() => Version_Label.Text = version);
 
-        private static void SetupPath()
-        {
+            LogInfo(LogSource.Launcher, $"Launcher Version: {version}");
+
             PATH = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]);
             LogInfo(LogSource.Launcher, $"Launcher path: {PATH}");
-        }
 
-        private static string GetLauncherVersion()
-        {
-            var useNightly = (bool)SettingsService.Get(SettingsService.Vars.Nightly_Builds);
-            return useNightly ? (string)SettingsService.Get(SettingsService.Vars.Launcher_Version) : VERSION;
-        }
-
-        private static void SetupVersion()
-        {
-            string version = GetLauncherVersion();
-            appDispatcher.Invoke(() => Version_Label.Text = version);
-            LogInfo(LogSource.Launcher, $"Launcher Version: {version}");
-        }
-
-        private static void LoadConfiguration()
-        {
             appState.RemoteConfig = appState.IsOnline ? ApiService.GetRemoteConfig() : null;
 
             SettingsService.Load();
-            appState.LauncherConfig = SettingsService.IniFile;
-            LogInfo(LogSource.Launcher, "Launcher config loaded.");
-        }
 
-        private static void SetupLocalization()
-        {
+            appState.LauncherConfig = SettingsService.IniFile;
+            LogInfo(LogSource.Launcher, $"Launcher config found");
+
             appState.cultureInfo = CultureInfo.CurrentCulture;
             appState.language_name = appState.cultureInfo.Parent.EnglishName.ToLower(new CultureInfo("en-US"));
-        }
 
-        private static void ConfigureNetworkProtocols()
-        {
             AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
         }

@@ -22,7 +22,7 @@ namespace launcher.Core
         #region Setup Functions
         public static async Task SetupApp(MainWindow mainWindow)
         {
-            //if (appState.DebugArg)
+            if (appState.DebugArg)
                 EnableDebugConsole();
 
             PreLoad_Window.SetLoadingText("Locating EA Desktop...");
