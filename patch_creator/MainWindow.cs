@@ -20,6 +20,7 @@ namespace patch_creator
         private readonly CloudflareService _cloudflareService;
 
         private RemoteConfig _remoteConfig;
+        private GameManifest _gameManifest;
 
         public MainWIndow()
         {
@@ -53,11 +54,39 @@ namespace patch_creator
 
         private async void ComboBox1_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            var checksumsUrl = Path.Combine(_remoteConfig.channels[comboBox1.SelectedIndex].game_url, "checksums.json");
-            GameManifest server_checksums = await _remoteContentService.GetGameManifestAsync(checksumsUrl);
+            string key = "";
+            if (_remoteConfig.channels[comboBox1.SelectedIndex].requires_key)
+            {
+                using (var keyDialog = new KeyInputDialog())
+                {
+                    if (keyDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        bool ok = await _remoteContentService.TestConnection(_remoteConfig.channels[comboBox1.SelectedIndex], keyDialog.EnteredKey);
 
-            versionTxt.Text = server_checksums.game_version;
-            blogslugTxt.Text = server_checksums.blog_slug;
+                        if (ok)
+                        {
+                            key = keyDialog.EnteredKey;
+                        }
+                        else
+                        {
+                            MessageBox.Show("Key was not correct.");
+                            comboBox1.SelectedIndex = 0;
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("A key is required to proceed.");
+                        comboBox1.SelectedIndex = 0;
+                        return;
+                    }
+                }
+            }
+
+            _gameManifest = await _remoteContentService.GetGameManifestAsync(_remoteConfig.channels[comboBox1.SelectedIndex], key);
+
+            versionTxt.Text = _gameManifest.game_version;
+            blogslugTxt.Text = _gameManifest.blog_slug;
         }
 
         private void LoadConfig()
@@ -132,9 +161,8 @@ namespace patch_creator
             var releaseChannel = _remoteConfig.channels[selectedIndex];
 
             var checksumsUrl = Path.Combine(releaseChannel.game_url, "checksums.json");
-            var serverChecksums = await _remoteContentService.GetGameManifestAsync(checksumsUrl);
 
-            await _patchService.CreatePatchAsync(sourceDir, outputDir, serverChecksums, ignoreStrings, maxDop, gameVersion, blogSlug, releaseChannel);
+            await _patchService.CreatePatchAsync(sourceDir, outputDir, _gameManifest, ignoreStrings, maxDop, gameVersion, blogSlug, releaseChannel);
             
             var changedFiles = new List<string>();
             var clearCachePath = Path.Combine(outputDir, "clearcache.txt");
