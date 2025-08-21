@@ -356,6 +356,8 @@ namespace launcher
             if (ReleaseChannel_Combobox.Items[SelectedReleaseChannel] is not ReleaseChannelViewModel comboChannel) return;
 
             SetupAdvancedMenu();
+            ModManager_Control.modLibraryPage.SetupModLibrarySettings(); // Update Mods panel
+
             GameSettings_Control.OpenDir_Button.IsEnabled = ReleaseChannelService.IsInstalled() || comboChannel.isLocal;
             GameSettings_Control.AdvancedMenu_Button.IsEnabled = ReleaseChannelService.IsInstalled() || comboChannel.isLocal;
 
@@ -896,5 +898,14 @@ namespace launcher
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
         #endregion functions
+
+        private void ModManagerBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (!appState.InModManagerMenu)
+            {
+                GameSettings_Popup.IsOpen = false;
+                ShowModManagerControl();
+            }
+        }
     }
 }

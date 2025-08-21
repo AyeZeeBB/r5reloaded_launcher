@@ -12,6 +12,7 @@ namespace launcher.Core.Models
         public bool BadFilesDetected { get; set; } = false;
         public bool InSettingsMenu { get; set; } = false;
         public bool InAdvancedMenu { get; set; } = false;
+        public bool InModManagerMenu { get; set; } = false;
         public bool OnBoarding { get; set; } = false;
         public bool BlockLanguageInstall { get; set; } = false;
         public bool DebugArg { get; set; } = false;

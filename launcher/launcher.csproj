@@ -108,13 +108,22 @@
     <Resource Include="Assets\launcher_x64.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Assets\icon.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Views\Controls\BrowserModItem.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Update="Views\Pages\Advanced\NetworkSettings.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Update="Views\Pages\Advanced\GeneralSettings.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Pages\ModManager\BrowserSettings.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Update="Views\Popups\Popup_Launcher_Update.xaml.cs">

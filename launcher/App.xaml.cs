@@ -1,11 +1,10 @@
-﻿using System.Configuration;
-using System.Data;
+﻿using launcher.Core;
+using launcher.Services;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Media;
 
 namespace launcher
 {
@@ -58,8 +57,14 @@ namespace launcher
             else
             {
                 // Another instance is already running
-                // Send a message to the existing instance to show the MainWindow
-                SendShowWindowMessage();
+                if (e.Args.Length > 0)
+                {
+                    SendURLProtocolMessage(e.Args);
+                } else
+                {
+                    // Send a message to the existing instance to show the MainWindow
+                    SendShowWindowMessage();
+                }
 
                 // Shutdown the new instance
                 Shutdown();
@@ -121,6 +126,34 @@ namespace launcher
                                             SetForegroundWindow(hwnd);
                                         }
                                     });
+                                } else
+                                {
+                                    Dispatcher.Invoke(async () =>
+                                    {
+                                        if (this.MainWindow != null)
+                                        {
+                                            if (this.MainWindow.WindowState == WindowState.Minimized)
+                                            {
+                                                this.MainWindow.WindowState = WindowState.Normal;
+                                            }
+
+                                            this.MainWindow.Show();
+                                            this.MainWindow.Activate();
+                                            (this.MainWindow as MainWindow)?.OnOpen();
+
+                                            // Bring the window to foreground using Windows API
+                                            var hwnd = new System.Windows.Interop.WindowInteropHelper(this.MainWindow).Handle;
+                                            ShowWindow(hwnd, SW_RESTORE);
+                                            SetForegroundWindow(hwnd);
+                                        }
+
+                                        AppController.ShowModManagerControl();
+
+                                        // TODO prevent from calling if another mod is already downloading
+                                        LibraryModItem loadingModItem = new LibraryModItem();
+                                        ModsService.AddLoadingModItem(loadingModItem);
+                                        await ModsService.DownloadMod(message, new Progress<float>(p => loadingModItem.UpdateDownloadProgress(p)));
+                                    });
                                 }
                             }
                         }
@@ -155,6 +188,33 @@ namespace launcher
                         writer.AutoFlush = true;
                         writer.WriteLine("SHOW_WINDOW");
                         Debug.WriteLine("Sent SHOW_WINDOW message to existing instance.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Pipe client error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sends a message to the existing instance with command line args (called from browser URL protocol)
+        /// </summary>
+        private void SendURLProtocolMessage(string[] args)
+        {
+            try
+            {
+                using (var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out))
+                {
+                    // Attempt to connect to the server with a timeout
+                    client.Connect(2000); // 2 seconds timeout
+
+                    using (var writer = new StreamWriter(client))
+                    {
+                        writer.AutoFlush = true;
+                        // Modern browsers turn r5rlauncher://https:// into r5rlauncher:https// so our URLs don't include it and we have to add it back
+                        string cleanedMessage = args[0].Replace("r5rlauncher://", "https://");
+                        writer.WriteLine(cleanedMessage);
                     }
                 }
             }

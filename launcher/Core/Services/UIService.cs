@@ -70,6 +70,16 @@ namespace launcher.Core.Services
             ToggleControlVisibility(Advanced_Control, false, inMenu => appState.InAdvancedMenu = inMenu);
         }
 
+        public void ShowModManagerControl()
+        {
+            ToggleControlVisibility(ModManager_Control, true, inMenu => appState.InModManagerMenu = inMenu);
+        }
+
+        public void HideModManagerControl()
+        {
+            ToggleControlVisibility(ModManager_Control, false, inMenu => appState.InModManagerMenu = inMenu);
+        }
+        
         public void MoveNewsRect(int index)
         {
             double speed = (bool)SettingsService.Get(SettingsService.Vars.Disable_Transitions) ? 1 : 400;
