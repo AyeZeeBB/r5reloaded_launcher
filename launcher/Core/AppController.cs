@@ -53,11 +53,14 @@ namespace launcher.Core
             PreLoad_Window.SetLoadingText("Checking for EA Desktop App");
             await Task.Run(() => _processService.FindAndStartEAApp());
 
+            PreLoad_Window.SetLoadingText("Getting game channels");
+            await Task.Run(() => SetupReleaseChannelComboBox());
+
             PreLoad_Window.SetLoadingText("Setting up menus");
             await Task.Run(() => SetupMenus());
 
-            PreLoad_Window.SetLoadingText("Getting game channels");
-            await Task.Run(() => SetupReleaseChannelComboBox());
+            //PreLoad_Window.SetLoadingText("Checking for mod updates");
+            ////await Task.Run(() => ModsService.CheckForModUpdates());
 
             PreLoad_Window.SetLoadingText("Checking game installs");
             await Task.Run(() => CheckGameInstalls());
@@ -145,6 +148,9 @@ namespace launcher.Core
 
                 Advanced_Control.SetupAdvancedSettings();
                 LogInfo(LogSource.Launcher, $"Advanced settings initialized");
+                
+                ModManager_Control.SetupModManagerMenu();
+                LogInfo(LogSource.Launcher, $"Mod manager menu initialized");
             }));
         }
 
@@ -302,6 +308,8 @@ namespace launcher.Core
         public static void HideSettingsControl() => _uiService.HideSettingsControl();
         public static void ShowAdvancedControl() => _uiService.ShowAdvancedControl();
         public static void HideAdvancedControl() => _uiService.HideAdvancedControl();
+        public static void ShowModManagerControl() => _uiService.ShowModManagerControl();
+        public static void HideModManagerControl() => _uiService.HideModManagerControl();
         public static void MoveNewsRect(int index) => _uiService.MoveNewsRect(index);
         public static Task ShowEULA() => _uiService.ShowEULA();
         public static Task HideEULA() => _uiService.HideEULA();

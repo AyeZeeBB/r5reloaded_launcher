@@ -46,6 +46,7 @@ namespace launcher.Core
 
         public static SettingsControl Settings_Control = new();
         public static AdvancedControl Advanced_Control = new();
+        public static ModManagerControl ModManager_Control = new();
 
         #endregion User Controls
 
@@ -119,6 +120,7 @@ namespace launcher.Core
             Play_Button = mainWindow.Play_Button;
             Settings_Control = mainWindow.Settings_Control;
             Advanced_Control = mainWindow.Advanced_Control;
+            ModManager_Control = mainWindow.ModManager_Control;
             LauncherUpdate_Control = mainWindow.LauncherUpdate_Control;
             Menu_Control = mainWindow.Menu_Control;
             Transition_Rect = mainWindow.Transition_Rect;

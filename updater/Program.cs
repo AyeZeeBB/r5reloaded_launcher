@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.Win32;
+using Newtonsoft.Json;
 using System.Diagnostics;
 
 internal partial class Program
@@ -67,6 +68,9 @@ internal partial class Program
             await DownloadLauncherAsync(destinationPath);
         }
 
+        Console.WriteLine("Registering Launcher URL protocol"); 
+        RegisterURLProtocol(destinationPath); // TODO Check for already existing keys and skip if not needed
+
         Console.WriteLine("Launching new launcher at " + destinationPath);
         var startInfo = new ProcessStartInfo
         {
@@ -134,6 +138,42 @@ internal partial class Program
         stream.CopyTo(fileStream);
         stream.Close();
         fileStream.Close();
+    }
+
+    public static void RegisterURLProtocol(string launcherPath)
+    {
+        try
+        {
+            string protocol = "r5rlauncher";
+            string path = "\"" + launcherPath + "\" \"%1\"";
+
+            using (RegistryKey key = Registry.ClassesRoot.CreateSubKey(protocol))
+            {
+                if (key == null)
+                    throw new Exception("Failed to create registry key.");
+
+                key.SetValue("", "R5RLauncher Protocol");
+                key.SetValue("URL Protocol", "");
+
+                using (RegistryKey commandKey = key.CreateSubKey(@"shell\open\command"))
+                {
+                    if (commandKey == null)
+                        throw new Exception("Failed to create command subkey.");
+
+                    commandKey.SetValue("", path);
+                }
+            }
+
+            Console.WriteLine("Custom protocol 'r5rlauncher://' registered successfully.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Console.WriteLine("ERROR: This must be run as administrator.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}");
+        }
     }
 }
 
